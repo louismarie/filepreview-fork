@@ -12,8 +12,23 @@ var fs = require('fs');
 var os = require('os');
 var mimedb = require('./db.json');
 
+
 module.exports = {
   generate: function(input_original, output, options, callback) {
+    var exitFlag = false
+    var fin = false
+    var timeoutObject = null
+
+    var setTimeoutFlag = (child, callback) => {
+      if (timeoutObject !== null) clearTimeout(timeoutObject)
+      fin = false
+      timeoutObject = setTimeout(() => {
+        if (fin) return
+        exitFlag = true
+        child.kill('SIGKILL')
+        callback(new Error('filepreview timeout')
+      }, 20000)
+    }
     // Normalize arguments
 
     var input = input_original;
@@ -91,7 +106,8 @@ module.exports = {
           if (options.width > 0 && options.height > 0) {
             ffmpegArgs.splice(4, 1, 'thumbnail,scale=' + options.width + ':' + options.height + (options.forceAspect?':force_original_aspect_ratio=decrease':''));
           }
-          child_process.execFile('ffmpeg', ffmpegArgs, function(error) {
+          let cproc = child_process.execFile('ffmpeg', ffmpegArgs, function(error) {
+            fin = true
             if (input_original.indexOf("http://") == 0 || input_original.indexOf("https://") == 0) {
               fs.unlinkSync(input);
             }
@@ -99,6 +115,8 @@ module.exports = {
             if (error) return callback(error);
             return callback();
           });
+          // add timeout kill
+          setTimeoutFlag(cproc, callback)
         }
 
         if ( fileType == 'image' ) {
@@ -116,13 +134,16 @@ module.exports = {
             convertArgs.splice(0, 0, '-background', options.background);
             convertArgs.splice(0, 0, '-flatten');
           }
-          child_process.execFile('convert', convertArgs, function(error) {
+          let cproc = child_process.execFile('convert', convertArgs, function(error) {
+            fin = true
             if (input_original.indexOf("http://") == 0 || input_original.indexOf("https://") == 0) {
               fs.unlinkSync(input);
             }
             if (error) return callback(error);
             return callback();
           });
+          // add timeout kill
+          setTimeoutFlag(cproc, callback)
         }
 
         if ( fileType == 'other' ) {
@@ -145,7 +166,8 @@ module.exports = {
           }
 
           if (unoconv_pagerange == '1') {
-            child_process.execFile('unoconv', ['-e', 'PageRange='+unoconv_pagerange, '-o', tempPDF, input], function(error) {
+            let cproc = child_process.execFile('unoconv', ['-e', 'PageRange='+unoconv_pagerange, '-o', tempPDF, input], function(error) {
+              fin = true
               if (error) return callback(error);
               var convertOtherArgs = [tempPDF + '[0]', output];
               if (options.width > 0 && options.height > 0) {
@@ -154,7 +176,8 @@ module.exports = {
               if (options.quality) {
                 convertOtherArgs.splice(0, 0, '-quality', options.quality);
               }
-              child_process.execFile('convert', convertOtherArgs, function(error) {
+              let cproc = child_process.execFile('convert', convertOtherArgs, function(error) {
+                fin = true
                 if (error) return callback(error);
                 fs.unlink(tempPDF, function(error) {
                   if (input_original.indexOf("http://") == 0 || input_original.indexOf("https://") == 0) {
@@ -164,9 +187,14 @@ module.exports = {
                   return callback();
                 });
               });
+              // add timeout kill
+              setTimeoutFlag(cproc, callback)
             });
+            // add timeout kill
+            setTimeoutFlag(cproc, callback)
           } else {
-            child_process.execFile('unoconv', ['-e', 'PageRange='+unoconv_pagerange, '-o', tempPDF, input], function(error) {
+            let cproc = child_process.execFile('unoconv', ['-e', 'PageRange='+unoconv_pagerange, '-o', tempPDF, input], function(error) {
+              fin = true
               if (error) return callback(error);
               var pages = [];
               for ( var x = 0; x < pagerange_stop; x++ ) { pages.push(x); }
@@ -178,10 +206,13 @@ module.exports = {
                 if (options.quality) {
                   convertOtherArgs.splice(0, 0, '-quality', options.quality);
                 }
-                child_process.execFile('convert', convertOtherArgs, function(error) {
+                let cproc = child_process.execFile('convert', convertOtherArgs, function(error) {
+                  fin = true
                   if (error) return callback(error);
                   return async_callback();
                 });
+                // add timeout kill
+                setTimeoutFlag(cproc, callback)
               }, function done() {
                 fs.unlink(tempPDF, function(error) {
                   if (input_original.indexOf("http://") == 0 || input_original.indexOf("https://") == 0) {
@@ -192,6 +223,8 @@ module.exports = {
                 });
               });
             });
+            // add timeout kill
+            setTimeoutFlag(cproc, callback)
           }
 
         }
