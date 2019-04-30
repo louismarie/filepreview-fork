@@ -164,8 +164,9 @@ module.exports = {
               pagerange_stop = pagerange[1];
             }
           }
+          unoconv_pagerange = `${pagerange_start}-${pagerange_stop}`
 
-          if (unoconv_pagerange == '1') {
+          if (unoconv_pagerange == '1-1') {
             let cproc = child_process.execFile('unoconv', ['-e', 'PageRange='+unoconv_pagerange, '-o', tempPDF, input], function(error) {
               fin = true
               if (error) return callback(error);
