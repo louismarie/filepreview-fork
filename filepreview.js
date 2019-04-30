@@ -26,7 +26,7 @@ module.exports = {
         if (fin) return
         exitFlag = true
         child.kill('SIGKILL')
-        callback(new Error('filepreview timeout')
+        callback(new Error('filepreview timeout'))
       }, 20000)
     }
     // Normalize arguments
